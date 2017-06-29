@@ -305,7 +305,11 @@ impl<T: Storage> RawNode<T> {
         Ready::new(&mut self.raft, &self.prev_ss, &self.prev_hs, None)
     }
 
-    pub fn has_ready_since(&self, applied_idx: Option<u64>) -> bool {
+    pub fn has_ready_since(&mut self, applied_idx: Option<u64>) -> bool {
+        if self.raft.need_bcast {
+            self.raft.do_bcast_append();
+            self.raft.need_bcast = false;
+        }
         let raft = &self.raft;
         if !raft.msgs.is_empty() || raft.raft_log.unstable_entries().is_some() {
             return true;
@@ -335,7 +339,7 @@ impl<T: Storage> RawNode<T> {
 
     // HasReady called when RawNode user need to check if any Ready pending.
     // Checking logic in this method should be consistent with Ready.containsUpdates().
-    pub fn has_ready(&self) -> bool {
+    pub fn has_ready(&mut self) -> bool {
         self.has_ready_since(None)
     }
 

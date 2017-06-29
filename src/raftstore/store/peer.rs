@@ -305,6 +305,7 @@ impl Peer {
             max_inflight_msgs: cfg.raft_max_inflight_msgs,
             applied: applied_index,
             check_quorum: true,
+            lazy_bcast: true,
             tag: tag.clone(),
             ..Default::default()
         };

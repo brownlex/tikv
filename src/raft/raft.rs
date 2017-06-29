@@ -121,6 +121,8 @@ pub struct Config {
     /// rejoins the cluster.
     pub pre_vote: bool,
 
+    pub lazy_bcast: bool,
+
     /// read_only_option specifies how the read only request is processed.
     pub read_only_option: ReadOnlyOption,
 
@@ -219,6 +221,9 @@ pub struct Raft<T: Storage> {
     /// return false will skip step**.
     pub before_step_state: Option<Box<FnMut(&Message) -> bool>>,
 
+    pub lazy_bcast: bool,
+    pub need_bcast: bool,
+
     /// tag is only used for logging
     tag: String,
 }
@@ -295,6 +300,8 @@ impl<T: Storage> Raft<T> {
             vote: Default::default(),
             heartbeat_elapsed: Default::default(),
             randomized_election_timeout: 0,
+            lazy_bcast: c.lazy_bcast,
+            need_bcast: false,
             tag: c.tag.to_owned(),
         };
         for p in peers {
@@ -537,6 +544,14 @@ impl<T: Storage> Raft<T> {
     // bcast_append sends RPC, with entries to all peers that are not up-to-date
     // according to the progress recorded in r.prs.
     pub fn bcast_append(&mut self) {
+        if self.lazy_bcast {
+            self.need_bcast = true;
+        } else {
+            self.do_bcast_append();
+        }
+    }
+
+    pub fn do_bcast_append(&mut self) {
         // TODO: avoid copy
         let ids: Vec<_> = self.prs.keys().cloned().collect();
         for id in ids {
